@@ -42,3 +42,9 @@ python rag_system.py
 - 首次运行时会需要一些时间来处理PDF文档
 - 确保有稳定的网络连接以访问OpenAI API
 - 向量数据库将保存在`./chroma_db`目录中 
+
+## 下载Llama 2模型
+
+```shell
+mkdir -p models && cd models && curl -L -o llama-2-7b-chat.Q4_K_M.gguf https://huggingface.co/TheBloke/Llama-2-7B-Chat-GGUF/resolve/main/llama-2-7b-chat.Q4_K_M.gguf
+```
