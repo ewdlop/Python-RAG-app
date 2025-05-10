@@ -101,56 +101,21 @@ def main():
     # 初始化RAG系统
     rag = RAGSystem()
     
-    # 示例：加载多本书籍
-    books = [
-        {
-            "path": "[The Morgan Kaufmann Series in Computer Architecture and Design] John L. Hennessy, David A. Patterson - Computer Architecture, Sixth Edition_ A Quantitative Approach (2017, Morgan Kaufmann).pdf",
-            "name": "计算机架构：量化研究方法"
-        }
-        # 可以在这里添加更多书籍
-    ]
+    # 加载PDF文档
+    pdf_path = "[The Morgan Kaufmann Series in Computer Architecture and Design] John L. Hennessy, David A. Patterson - Computer Architecture, Sixth Edition_ A Quantitative Approach (2017, Morgan Kaufmann).pdf"
+    rag.load_and_process_document(pdf_path)
     
-    # 加载所有书籍
-    for book in books:
-        try:
-            rag.load_and_process_document(book["path"], book["name"])
-        except Exception as e:
-            print(f"加载书籍 {book['name']} 时发生错误: {str(e)}")
-    
-    # 显示已加载的书籍
-    print("\n已加载的书籍:")
-    for book_name, metadata in rag.list_books().items():
-        print(f"- {book_name}: {metadata['total_pages']}页, {metadata['chunk_count']}个文本块")
-    
-    # 交互式问答
-    print("\n欢迎使用RAG问答系统！")
-    print("可用命令:")
-    print("- 'list': 列出所有已加载的书籍")
-    print("- 'quit': 退出系统")
-    print("- 输入问题开始查询")
+    print("欢迎使用RAG问答系统！")
+    print("您可以询问任何关于计算机架构的问题。")
+    print("输入'quit'退出系统。")
     
     while True:
-        user_input = input("\n请输入您的问题或命令: ")
-        
-        if user_input.lower() == 'quit':
+        question = input("\n请输入您的问题: ")
+        if question.lower() == 'quit':
             break
-        elif user_input.lower() == 'list':
-            print("\n已加载的书籍:")
-            for book_name, metadata in rag.list_books().items():
-                print(f"- {book_name}: {metadata['total_pages']}页, {metadata['chunk_count']}个文本块")
-            continue
             
-        try:
-            # 检查是否指定了特定书籍
-            if " in " in user_input.lower():
-                question, book_name = user_input.split(" in ", 1)
-                answer = rag.query(question.strip(), book_name.strip())
-            else:
-                answer = rag.query(user_input)
-            
-            print("\n回答:", answer)
-        except Exception as e:
-            print(f"发生错误: {str(e)}")
+        answer = rag.query(question)
+        print("\n回答:", answer)
 
 if __name__ == "__main__":
     main() 
