@@ -17,11 +17,6 @@
 pip install -r requirements.txt
 ```
 
-3. 创建`.env`文件并添加OpenAI API密钥：
-```
-OPENAI_API_KEY=your_api_key_here
-```
-
 ## 使用方法
 
 运行主程序：
@@ -34,7 +29,7 @@ python rag_system.py
 ## 系统要求
 
 - Python 3.8+
-- OpenAI API密钥
+- Llama 2模型
 - 足够的磁盘空间用于存储向量数据库
 
 ## 注意事项
