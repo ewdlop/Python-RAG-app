@@ -6,7 +6,7 @@ from langchain_community.document_loaders import PyPDFLoader
 from langchain_community.vectorstores import Chroma
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain.chains import RetrievalQA
-from langchain_openai import ChatOpenAI
+from langchain_community.llms import LlamaCpp
 from langchain.schema import Document
 
 # 加载环境变量
@@ -14,10 +14,15 @@ load_dotenv()
 
 class RAGSystem:
     def __init__(self):
-        self.embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+        # 使用本地嵌入模型
+        self.embeddings = HuggingFaceEmbeddings(
+            model_name="sentence-transformers/all-MiniLM-L6-v2",
+            model_kwargs={'device': 'cpu'},
+            encode_kwargs={'normalize_embeddings': True}
+        )
         self.text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,
-            chunk_overlap=200,
+            chunk_size=256,
+            chunk_overlap=32,
             length_function=len
         )
         self.vector_store = None
@@ -29,48 +34,69 @@ class RAGSystem:
         if not book_name:
             book_name = os.path.basename(pdf_path)
         
-        print(f"正在加载PDF文档: {book_name}...")
-        loader = PyPDFLoader(pdf_path)
-        pages = loader.load()
-        
-        # 为每个文档添加元数据
-        for page in pages:
-            page.metadata["book_name"] = book_name
-        
-        print("正在分割文档...")
-        chunks = self.text_splitter.split_documents(pages)
-        
-        # 更新书籍元数据
-        self.book_metadata[book_name] = {
-            "chunk_count": len(chunks),
-            "total_pages": len(pages)
-        }
-        
-        print("正在创建/更新向量存储...")
-        if self.vector_store is None:
+        # 检查向量数据库是否已存在
+        if os.path.exists("./chroma_db"):
+            print("检测到已存在的向量数据库，正在加载...")
+            self.vector_store = Chroma(
+                persist_directory="./chroma_db",
+                embedding_function=self.embeddings
+            )
+            # 从向量存储中获取所有文档的元数据
+            all_docs = self.vector_store.get()
+            if all_docs and all_docs['metadatas']:
+                # 统计每本书的块数
+                for metadata in all_docs['metadatas']:
+                    book_name = metadata.get('book_name')
+                    if book_name:
+                        if book_name not in self.book_metadata:
+                            self.book_metadata[book_name] = {"chunk_count": 0}
+                        self.book_metadata[book_name]["chunk_count"] += 1
+            print("向量数据库加载完成")
+        else:
+            print(f"正在加载PDF文档: {book_name}...")
+            loader = PyPDFLoader(pdf_path)
+            pages = loader.load()
+            
+            # 为每个文档添加元数据
+            for page in pages:
+                page.metadata["book_name"] = book_name
+            
+            print("正在分割文档...")
+            chunks = self.text_splitter.split_documents(pages)
+            
+            # 更新书籍元数据
+            self.book_metadata[book_name] = {
+                "chunk_count": len(chunks),
+                "total_pages": len(pages)
+            }
+            
+            print("正在创建向量存储...")
             self.vector_store = Chroma.from_documents(
                 documents=chunks,
                 embedding=self.embeddings,
                 persist_directory="./chroma_db"
             )
-        else:
-            self.vector_store.add_documents(chunks)
         
         print("正在初始化QA链...")
-        llm = ChatOpenAI(
-            model_name="gpt-3.5-turbo",
-            temperature=0
+        # 使用本地LLM
+        llm = LlamaCpp(
+            model_path="./models/llama-2-7b-chat.Q4_K_M.gguf",
+            temperature=0.7,
+            max_tokens=256,
+            n_ctx=512,
+            top_p=1,
+            verbose=True,
         )
         
         self.qa_chain = RetrievalQA.from_chain_type(
             llm=llm,
             chain_type="stuff",
-            retriever=self.vector_store.as_retriever(search_kwargs={"k": 3})
+            retriever=self.vector_store.as_retriever(search_kwargs={"k": 1})
         )
         
         print(f"成功加载书籍: {book_name}")
-        print(f"总页数: {len(pages)}")
-        print(f"文本块数量: {len(chunks)}")
+        if book_name in self.book_metadata:
+            print(f"文本块数量: {self.book_metadata[book_name]['chunk_count']}")
 
     def list_books(self) -> Dict:
         """列出所有已加载的书籍信息"""
@@ -88,7 +114,7 @@ class RAGSystem:
             
             retriever = self.vector_store.as_retriever(
                 search_kwargs={
-                    "k": 3,
+                    "k": 1,
                     "filter": {"book_name": book_name}
                 }
             )
