@@ -1,4 +1,4 @@
-langchain==0.1.0
+langchain==0.2.5
 langchain-community==0.0.20
 chromadb==0.4.22
 pypdf==3.17.1
